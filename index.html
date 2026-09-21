@@ -77,7 +77,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     room:null,            // { meta, players, votes, questions } snapshot (or null)
     hostScreen:'landing', // pre-room host UI: 'landing' | 'setup'
     roundCount:8, qs:null, // setup slider + custom questions (applied at room creation)
-    joinCode:'', joinError:'',
+    joinCode:'', joinError:'', playerMode:false,
     voteText:'', tvSel:null,
     _unwatch:null, _advanceT:null
   };
@@ -219,7 +219,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
   function joinRoom(code){
     backend.exists(code).then(function(ok){
       if(!ok){ setState({ joinError: T[state.lang].joinError }); return; }
-      state.role='player'; watchCurrent(code, true); setState({ code:code, view:'phone', joinError:'' });
+      state.role='player'; watchCurrent(code, true); setState({ code:code, view:'phone', joinError:'', playerMode:true });
     });
   }
   function tvWatch(code){
@@ -262,11 +262,11 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px;background:#fff;border-bottom:1px solid #E1E3E5;flex-wrap:wrap">'
       + '<div style="display:flex;align-items:center;gap:14px"><img src="logo.png" alt="" style="height:40px"><div style="width:1px;height:28px;background:#E1E3E5"></div><div style="font-family:'+f.head+';font-weight:800;font-size:18px;color:#92722A">'+esc(t.appName)+'</div></div>'
       + '<div style="display:flex;align-items:center;gap:8px">'
-        + '<div style="display:flex;background:#F7F7F7;border-radius:999px;padding:3px">'
+        + (state.playerMode ? '' : ('<div style="display:flex;background:#F7F7F7;border-radius:999px;padding:3px">'
           + '<button data-a="setHost" style="border:0;padding:8px 16px;border-radius:999px;font-weight:600;font-size:14px;background:'+(hb?'#92722A':'transparent')+';color:'+(hb?'#fff':'#4B4F58')+';display:flex;gap:6px;align-items:center"><i class="ph-bold ph-monitor"></i>'+esc(t.host)+'</button>'
           + '<button data-a="setPhone" style="border:0;padding:8px 16px;border-radius:999px;font-weight:600;font-size:14px;background:'+(pb?'#92722A':'transparent')+';color:'+(pb?'#fff':'#4B4F58')+';display:flex;gap:6px;align-items:center"><i class="ph-bold ph-device-mobile"></i>'+esc(t.phone)+'</button>'
           + '<button data-a="setTv" style="border:0;padding:8px 16px;border-radius:999px;font-weight:600;font-size:14px;background:'+(tb?'#92722A':'transparent')+';color:'+(tb?'#fff':'#4B4F58')+';display:flex;gap:6px;align-items:center"><i class="ph-bold ph-television"></i>'+esc(t.tv)+'</button>'
-        + '</div>'
+        + '</div>'))
         + '<button data-a="toggleLang" style="border:1px solid #C3C6CB;background:#fff;padding:8px 14px;border-radius:999px;font-weight:600;font-size:14px;display:flex;gap:6px;align-items:center"><i class="ph-bold ph-translate"></i>'+esc(t.otherLang)+'</button>'
       + '</div></div>';
   }
@@ -396,7 +396,10 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
 
   // ---- Phone --------------------------------------------------------------
   function phoneShell(inner){
-    return '<div style="flex:1;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px;background:#F2F2F2"><div style="width:390px;max-width:100%;min-height:720px;background:#FCFCFC;border-radius:40px;border:10px solid #232528;box-shadow:0 24px 48px -12px rgba(14,15,18,.3);overflow:hidden;display:flex;flex-direction:column"><div style="display:flex;justify-content:space-between;padding:12px 22px 0;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px"><i class="ph-bold ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div><div style="flex:1;display:flex;flex-direction:column;padding:20px;gap:18px">'+inner+'</div></div></div>';
+    // Clean, responsive full-screen layout — fills a real phone naturally, and on
+    // desktop is a centered mobile-width column (no fake device bezel/status bar).
+    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;background:#FCFCFC">'
+      + '<div style="flex:1;width:100%;max-width:480px;display:flex;flex-direction:column;padding:24px 20px 36px;gap:18px;box-sizing:border-box">'+inner+'</div></div>';
   }
   function phoneView(t, f){
     // Not joined -> join-by-code screen
@@ -527,7 +530,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     if(window.__memeBackend){ backend=window.__memeBackend; state.configured=true; }
     else if(okConfig){ backend=makeSupabaseBackend(SUPABASE_URL, SUPABASE_ANON_KEY); state.configured=true; }
     else { state.configured=false; state.connecting=false; render(); return; }
-    if(roomParam){ state.view='phone'; state.joinCode=roomParam; }
+    if(roomParam){ state.view='phone'; state.joinCode=roomParam; state.playerMode=true; }
     render();
     backend.ready.then(function(r){
       state.uid=r.uid; state.connecting=false;
