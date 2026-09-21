@@ -77,7 +77,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     room:null,            // { meta, players, votes, questions } snapshot (or null)
     hostScreen:'landing', // pre-room host UI: 'landing' | 'setup'
     roundCount:8, qs:null, // setup slider + custom questions (applied at room creation)
-    joinCode:'', joinError:'', playerMode:false,
+    joinCode:'', joinError:'', playerMode:false, playerName:'', fromLink:false,
     voteText:'', tvSel:null,
     _unwatch:null, _advanceT:null
   };
@@ -97,9 +97,9 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
   var EXTRA = ['Who has the loudest laugh?','Who never finds their parking spot?','Who brings the best snacks?','Who has the messiest desk?','Who is always on a call?','Who forgets to unmute?','Who plans the lunch orders?'];
   var T = {
     en: { appName: 'Meme Vote', host: 'Host screen', phone: 'Phone', tv: 'TV home', tvKicker: 'Team wall', tvTitle: 'All memes and who the team picked', memesWord: 'memes', seeAll: 'See all votes', allMemes: 'All memes', otherLang: 'العربية', tagline: 'Team activity · no wrong answers', landingTitle: 'Vote for the colleague who matches the meme.', landingBody: 'Host shows a meme and a question on the big screen. Everyone types a name on their phone. Results, laughter, next meme.', createGame: 'Create a game', joinAsPlayer: 'Join as a player', scanToJoin: 'Scan with your phone camera to join. No PIN, no sign‑in.', scannedIntro: 'You joined the game. Tap below when you are ready.', scannedNote: 'Anonymous · no name or sign‑in needed', startVoting: 'Start voting', memeGoesHere: 'Meme image', sampleQ1: 'Who is most likely to have 100 browser tabs open?', sampleQ2: 'أكثر موظفة بتشرب شاي؟', step1: 'Set up', setupTitle: 'Names, rounds and memes', namesLabel: 'No name list needed', namesHelp: 'Each employee types a colleague’s name on their phone. The big screen shows the names as votes come in, and results rank the most‑voted names.', perRound: 'per round', namesComingIn: 'Names coming in', typeOnPhone: 'Everyone types a name on their phone', whoLabel: 'Who fits this meme?', typeName: 'Type a colleague’s name', submitVote: 'Submit vote', roundsLabel: 'Number of rounds', flowLabel: 'No timer', flowHelp: 'The round closes as soon as everyone has voted, or when you press "Show results". Then the next meme.', showResults: 'Show results', roundsPreview: 'Rounds', uploadMeme: 'Upload meme', round: 'Round', back: 'Back', openLobby: 'Open lobby', joinAt: 'Join at', gameCode: 'Game code', lobbyTitle: 'Waiting for the team to join', joined: 'joined', roundsWord: 'rounds', startGame: 'Start game', of: 'of', voted: 'voted', votes: 'votes', winsThisOne: 'wins this one!', leaderboard: 'Leaderboard', nextMeme: 'Next meme', showFinal: 'Final leaderboard', roundsWon: 'rounds won', continueGame: 'Continue game', newGame: 'New game', finalAfter: 'After round', finalDone: 'Game over', youreIn: "You're in", waitHost: 'Waiting for the host to start the first round.', voteSubmitted: 'Vote submitted', youVotedFor: 'You voted for', waitingOthers: 'Waiting for everyone else…', roundsDone: 'rounds voted', allDone: 'All rounds done', allVotesIn: 'thanks for playing', nextSoon: 'Next meme coming up', noVotesYet: 'No votes yet',
-      connecting: 'Connecting…', notConfiguredTitle: 'Not connected yet', notConfiguredBody: 'This game needs its Supabase settings before it can run live. Add your Supabase URL and anon key to enable real cross‑device play.', joinTitle: 'Join the game', enterCode: 'Enter the game code', joinBtn: 'Join', joinError: 'That code was not found. Check the big screen and try again.', shareLine: 'Scan to join · or open', tvEnterCodeTitle: 'Show a game on the big screen', tvEnterCode: 'Enter the game code to display its wall', showWall: 'Show wall', noPlayers: 'No one has joined yet — share the code or QR.', waitingForHost: 'Waiting for the host…', roomClosed: 'This game has ended.', copyLink: 'Copy link', copied: 'Copied!', players: 'players', changeMeme: 'Change image' },
+      connecting: 'Connecting…', notConfiguredTitle: 'Not connected yet', notConfiguredBody: 'This game needs its Supabase settings before it can run live. Add your Supabase URL and anon key to enable real cross‑device play.', joinTitle: 'Join the game', enterCode: 'Enter the game code', joinBtn: 'Join', joinError: 'That code was not found. Check the big screen and try again.', yourNameLabel: 'Your name', yourNamePlaceholder: 'Enter your name', nameRequired: 'Please enter your name first.', shareLine: 'Scan to join · or open', tvEnterCodeTitle: 'Show a game on the big screen', tvEnterCode: 'Enter the game code to display its wall', showWall: 'Show wall', noPlayers: 'No one has joined yet — share the code or QR.', waitingForHost: 'Waiting for the host…', roomClosed: 'This game has ended.', copyLink: 'Copy link', copied: 'Copied!', players: 'players', changeMeme: 'Change image' },
     ar: { appName: 'تصويت الميمز', host: 'شاشة المقدّم', phone: 'الهاتف', tv: 'شاشة التلفاز', tvKicker: 'جدار الفريق', tvTitle: 'كل الميمز ومن اختارهم الفريق', memesWord: 'ميمز', seeAll: 'عرض كل الأصوات', allMemes: 'كل الميمز', otherLang: 'English', tagline: 'نشاط جماعي · لا توجد إجابات خاطئة', landingTitle: 'صوّت للزميل الذي يشبه الميم.', landingBody: 'يعرض المقدّم ميماً وسؤالاً على الشاشة الكبيرة. يكتب الجميع اسماً على هواتفهم. نتائج، ضحك، ثم الميم التالي.', createGame: 'إنشاء لعبة', joinAsPlayer: 'انضم كلاعب', scanToJoin: 'امسح الرمز بكاميرا هاتفك للانضمام. بدون رمز أو تسجيل دخول.', scannedIntro: 'انضممت إلى اللعبة. اضغط أدناه عندما تكون جاهزاً.', scannedNote: 'مجهول · بدون اسم أو تسجيل دخول', startVoting: 'ابدأ التصويت', memeGoesHere: 'صورة الميم', sampleQ1: 'Who is most likely to have 100 browser tabs open?', sampleQ2: 'أكثر موظفة بتشرب شاي؟', step1: 'الإعداد', setupTitle: 'الأسماء والجولات والميمز', namesLabel: 'لا حاجة لقائمة أسماء', namesHelp: 'يكتب كل موظف اسم زميل على هاتفه. تعرض الشاشة الكبيرة الأسماء مع وصول الأصوات، وترتّب النتائج الأسماء الأكثر تصويتاً.', perRound: 'لكل جولة', namesComingIn: 'الأسماء تصل الآن', typeOnPhone: 'الجميع يكتب اسماً على هاتفه', whoLabel: 'من يشبه هذا الميم؟', typeName: 'اكتب اسم زميل', submitVote: 'إرسال الصوت', roundsLabel: 'عدد الجولات', flowLabel: 'بدون مؤقّت', flowHelp: 'تُغلق الجولة فور تصويت الجميع، أو عند ضغط "عرض النتائج". ثم الميم التالي.', showResults: 'عرض النتائج', roundsPreview: 'الجولات', uploadMeme: 'رفع ميم', round: 'الجولة', back: 'رجوع', openLobby: 'فتح غرفة الانتظار', joinAt: 'انضم عبر', gameCode: 'رمز اللعبة', lobbyTitle: 'ننتظر انضمام الفريق', joined: 'انضموا', roundsWord: 'جولات', startGame: 'ابدأ اللعبة', of: 'من', voted: 'صوّتوا', votes: 'أصوات', winsThisOne: 'الفائز في هذه الجولة!', leaderboard: 'لوحة المتصدرين', nextMeme: 'الميم التالي', showFinal: 'اللوحة النهائية', roundsWon: 'جولات فاز بها', continueGame: 'متابعة اللعبة', newGame: 'لعبة جديدة', finalAfter: 'بعد الجولة', finalDone: 'انتهت اللعبة', youreIn: 'انضممت', waitHost: 'ننتظر المقدّم ليبدأ الجولة الأولى.', voteSubmitted: 'تم إرسال صوتك', youVotedFor: 'صوّتت لـ', waitingOthers: 'ننتظر بقية الفريق…', roundsDone: 'جولات تم التصويت فيها', allDone: 'انتهت كل الجولات', allVotesIn: 'شكراً لمشاركتك', nextSoon: 'الميم التالي قريباً', noVotesYet: 'لا أصوات بعد',
-      connecting: 'جارٍ الاتصال…', notConfiguredTitle: 'غير متصل بعد', notConfiguredBody: 'تحتاج هذه اللعبة إلى إعدادات Supabase لتعمل مباشرة. أضف رابط Supabase ومفتاح anon لتفعيل اللعب الحقيقي بين الأجهزة.', joinTitle: 'انضم إلى اللعبة', enterCode: 'أدخل رمز اللعبة', joinBtn: 'انضمام', joinError: 'الرمز غير موجود. تحقق من الشاشة الكبيرة وحاول مجدداً.', shareLine: 'امسح للانضمام · أو افتح', tvEnterCodeTitle: 'اعرض لعبة على الشاشة الكبيرة', tvEnterCode: 'أدخل رمز اللعبة لعرض جدارها', showWall: 'عرض الجدار', noPlayers: 'لا أحد انضم بعد — شارك الرمز أو الـ QR.', waitingForHost: 'ننتظر المقدّم…', roomClosed: 'انتهت هذه اللعبة.', copyLink: 'نسخ الرابط', copied: 'تم النسخ!', players: 'لاعبين', changeMeme: 'تغيير الصورة' }
+      connecting: 'جارٍ الاتصال…', notConfiguredTitle: 'غير متصل بعد', notConfiguredBody: 'تحتاج هذه اللعبة إلى إعدادات Supabase لتعمل مباشرة. أضف رابط Supabase ومفتاح anon لتفعيل اللعب الحقيقي بين الأجهزة.', joinTitle: 'انضم إلى اللعبة', enterCode: 'أدخل رمز اللعبة', joinBtn: 'انضمام', joinError: 'الرمز غير موجود. تحقق من الشاشة الكبيرة وحاول مجدداً.', yourNameLabel: 'اسمك', yourNamePlaceholder: 'اكتب اسمك', nameRequired: 'من فضلك أدخل اسمك أولاً.', shareLine: 'امسح للانضمام · أو افتح', tvEnterCodeTitle: 'اعرض لعبة على الشاشة الكبيرة', tvEnterCode: 'أدخل رمز اللعبة لعرض جدارها', showWall: 'عرض الجدار', noPlayers: 'لا أحد انضم بعد — شارك الرمز أو الـ QR.', waitingForHost: 'ننتظر المقدّم…', roomClosed: 'انتهت هذه اللعبة.', copyLink: 'نسخ الرابط', copied: 'تم النسخ!', players: 'لاعبين', changeMeme: 'تغيير الصورة' }
   };
 
   // -------------------------------------------------------------------- utils
@@ -161,7 +161,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
   function watchCurrent(code, asPlayer){
     if(state._unwatch){ try{ state._unwatch(); }catch(e){} state._unwatch=null; }
     state._unwatch = backend.watch(code, function(room){ onRoom(room); });
-    if(asPlayer) backend.join(code);
+    if(asPlayer) backend.join(code, state.playerName);
   }
   function onRoom(room){ state.room = room; maybeAutoAdvance(); render(); }
 
@@ -201,7 +201,8 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     onMeme:     function(ds,e){ var f=e.target.files && e.target.files[0]; if(!f) return; compressImage(f, function(data){ if(data && backend && backend.setMeme){ backend.setMeme(+ds.i, data); } render(); }); },
     onJoinCode: function(ds,e){ state.joinCode=(e.target.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6); var el=document.getElementById('join-code'); if(el && el.value!==state.joinCode){ el.value=state.joinCode; } },
     onJoinKey:  function(ds,e){ if(e.key==='Enter') actions.doJoin(); },
-    doJoin:     function(){ var code=(state.joinCode||'').trim().toUpperCase(); if(code) joinRoom(code); },
+    onName:     function(ds,e){ setState({ playerName: e.target.value }); },
+    doJoin:     function(){ var code=(state.joinCode||'').trim().toUpperCase(); var name=(state.playerName||'').trim(); if(!name){ setState({ joinError: T[state.lang].nameRequired }); return; } if(!code){ setState({ joinError: T[state.lang].joinError }); return; } joinRoom(code, name); },
     doTvWatch:  function(){ var code=(state.joinCode||'').trim().toUpperCase(); if(code) tvWatch(code); },
     tvOpen:     function(ds){ setState({ tvSel:+ds.i }); },
     tvBack:     function(){ setState({ tvSel:null }); },
@@ -216,7 +217,8 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
       .then(function(){ state.role='host'; watchCurrent(code, false); setState({ code:code }); })
       .catch(function(e){ setState({ error:(e&&e.message)||'Could not create the game.' }); });
   }
-  function joinRoom(code){
+  function joinRoom(code, name){
+    if(name){ state.playerName=name; try{ localStorage.setItem('meme_name', name); }catch(e){} }
     backend.exists(code).then(function(ok){
       if(!ok){ setState({ joinError: T[state.lang].joinError }); return; }
       state.role='player'; watchCurrent(code, true); setState({ code:code, view:'phone', joinError:'', playerMode:true });
@@ -306,8 +308,8 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
 
   // ---- Host: lobby / round / results / final (room-driven) ----------------
   function lobby(t, f){
-    var pc=participantCount(), url=joinURL(state.code);
-    var chips=Object.keys(players()).map(function(u,i){ return '<span style="width:44px;height:44px;border-radius:50%;background:'+COLORS[i%COLORS.length]+';display:flex;align-items:center;justify-content:center;animation:popIn .3s ease"><i class="ph-fill ph-user" style="font-size:22px;color:#fff"></i></span>'; }).join('');
+    var pc=participantCount(), url=joinURL(state.code), pls=players();
+    var chips=Object.keys(pls).map(function(u,i){ var nm=((pls[u]&&pls[u].name)||'').trim()||'—'; return '<span style="display:flex;align-items:center;gap:8px;background:#F7F7F7;border:1px solid #E1E3E5;border-radius:999px;padding:6px 16px 6px 6px;font-weight:600;font-size:15px;animation:popIn .3s ease"><span style="width:30px;height:30px;border-radius:50%;background:'+COLORS[i%COLORS.length]+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px">'+esc((nm[0]||'?').toUpperCase())+'</span>'+esc(nm)+'</span>'; }).join('');
     return '<div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:40px;align-items:center;max-width:1100px;width:100%;margin:0 auto;padding:48px 32px;box-sizing:border-box;animation:popIn .4s ease">'
       + '<div style="background:#fff;border:1px solid #E1E3E5;border-radius:16px;padding:32px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;box-shadow:0 12px 28px -6px rgba(14,15,18,.08)">'
         + '<div style="font-size:14px;font-weight:600;color:#4B4F58;text-transform:uppercase;letter-spacing:.06em">'+esc(t.gameCode)+'</div>'
@@ -402,14 +404,27 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
       + '<div style="flex:1;width:100%;max-width:480px;display:flex;flex-direction:column;padding:24px 20px 36px;gap:18px;box-sizing:border-box">'+inner+'</div></div>';
   }
   function phoneView(t, f){
-    // Not joined -> join-by-code screen
+    // Not joined -> enter your name (and the code, if not opened from a link) then join
     if(!state.code || state.role!=='player'){
-      return phoneShell('<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px;animation:popIn .4s ease"><img src="logo.png" alt="" style="height:44px;align-self:flex-start"><h2 style="margin:0;font-family:'+f.head+';font-weight:800;font-size:30px;line-height:1.1">'+esc(t.joinTitle)+'</h2><p style="margin:0;color:#4B4F58;font-size:16px">'+esc(t.enterCode)+'</p><input id="join-code" data-input="onJoinCode" data-key="onJoinKey" value="'+esc(state.joinCode)+'" maxlength="6" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.3em;text-align:center;font-family:'+f.head+';font-weight:800;font-size:32px;border:2px solid #C3C6CB;border-radius:12px;padding:16px;outline-color:#CBA344;box-sizing:border-box">'+(state.joinError?'<div style="color:#D83731;font-size:14px">'+esc(state.joinError)+'</div>':'')+'<button data-a="doJoin" class="h-primary" style="border:0;background:#92722A;color:#fff;font-size:20px;font-weight:700;padding:18px;border-radius:999px;min-height:56px">'+esc(t.joinBtn)+'</button></div>');
+      var needCode = !state.fromLink;
+      var codeField = needCode
+        ? '<input id="join-code" data-input="onJoinCode" data-key="onJoinKey" data-focus="code" value="'+esc(state.joinCode)+'" maxlength="6" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.3em;text-align:center;font-family:'+f.head+';font-weight:800;font-size:30px;border:2px solid #C3C6CB;border-radius:12px;padding:14px;outline-color:#CBA344;box-sizing:border-box">'
+        : '<div style="font-size:14px;color:#797E86">'+esc(t.gameCode)+': <strong style="letter-spacing:.15em;color:#232528">'+esc(state.joinCode)+'</strong></div>';
+      var ready = !!((state.playerName||'').trim() && (state.joinCode||'').trim());
+      return phoneShell('<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;animation:popIn .4s ease">'
+        + '<img src="logo.png" alt="" style="height:44px;align-self:flex-start">'
+        + '<h2 style="margin:0;font-family:'+f.head+';font-weight:800;font-size:30px;line-height:1.1">'+esc(t.joinTitle)+'</h2>'
+        + codeField
+        + '<label style="font-weight:700;font-size:15px;margin-top:4px">'+esc(t.yourNameLabel)+'</label>'
+        + '<input data-input="onName" data-key="onJoinKey" data-focus="name" value="'+esc(state.playerName)+'" maxlength="24" placeholder="'+esc(t.yourNamePlaceholder)+'" style="font:inherit;font-family:'+f.head+';font-weight:800;font-size:22px;border:2px solid #C3C6CB;border-radius:12px;padding:14px;outline-color:#CBA344;box-sizing:border-box">'
+        + (state.joinError?'<div style="color:#D83731;font-size:14px">'+esc(state.joinError)+'</div>':'')
+        + '<button id="join-btn" data-a="doJoin" class="press" style="border:0;background:'+(ready?'#92722A':'#C3C6CB')+';color:#fff;font-size:20px;font-weight:700;padding:16px;border-radius:999px;min-height:56px;margin-top:4px">'+esc(t.joinBtn)+'</button>'
+        + '</div>');
     }
     var m=meta();
     if(!m){ return phoneShell('<div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px"><div class="spin"></div><p style="color:#4B4F58">'+esc(t.waitingForHost)+'</p></div>'); }
     if(m.status==='lobby'){
-      return phoneShell('<div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;text-align:center;animation:popIn .4s ease"><div style="width:88px;height:88px;border-radius:50%;background:#F9F7ED;display:flex;align-items:center;justify-content:center"><i class="ph-fill ph-check-circle" style="font-size:52px;color:#3F8E50"></i></div><h3 style="margin:0;font-family:'+f.head+';font-weight:800;font-size:28px">'+esc(t.youreIn)+'</h3><p style="margin:0;color:#4B4F58;font-size:16px">'+esc(t.waitHost)+'</p><div style="font-size:14px;color:#9EA2A9">'+esc(t.gameCode)+': <strong style="letter-spacing:.15em">'+esc(state.code)+'</strong></div></div>');
+      return phoneShell('<div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;text-align:center;animation:popIn .4s ease"><div style="width:88px;height:88px;border-radius:50%;background:#F9F7ED;display:flex;align-items:center;justify-content:center"><i class="ph-fill ph-check-circle" style="font-size:52px;color:#3F8E50"></i></div><h3 style="margin:0;font-family:'+f.head+';font-weight:800;font-size:28px">'+esc(t.youreIn)+'</h3>'+(state.playerName?'<div style="font-family:'+f.head+';font-weight:800;font-size:22px;color:#92722A">'+esc(state.playerName)+'</div>':'')+'<p style="margin:0;color:#4B4F58;font-size:16px">'+esc(t.waitHost)+'</p><div style="font-size:14px;color:#9EA2A9">'+esc(t.gameCode)+': <strong style="letter-spacing:.15em">'+esc(state.code)+'</strong></div></div>');
     }
     var i=m.roundIdx, voted = !!myVote();
     if(m.status==='round' && !voted){
@@ -472,7 +487,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     var uid;
     try{ uid = localStorage.getItem('meme_uid'); if(!uid){ uid = 'u_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); localStorage.setItem('meme_uid', uid); } }
     catch(e){ uid = 'u_'+Math.random().toString(36).slice(2,12); }
-    var channel=null, isHost=false, subscribed=false, pendingTrack=false, room=null, cb=null, memes={};
+    var channel=null, isHost=false, subscribed=false, pendingTrack=false, room=null, cb=null, memes={}, pendingName='';
 
     function snap(){ if(!room) return null; var r=JSON.parse(JSON.stringify(room)); r.memes = JSON.parse(JSON.stringify(memes)); return r; }
     function emit(){ if(cb) cb(snap()); }
@@ -481,7 +496,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     function rebuildPlayers(){
       if(!isHost || !room || !channel) return;
       var st = channel.presenceState(), pl = {};
-      Object.keys(st).forEach(function(k){ (st[k]||[]).forEach(function(p){ if(p && p.uid){ pl[p.uid] = { joinedAt: p.joinedAt || 0 }; } }); });
+      Object.keys(st).forEach(function(k){ (st[k]||[]).forEach(function(p){ if(p && p.uid){ pl[p.uid] = { joinedAt: p.joinedAt || 0, name: p.name || '' }; } }); });
       room.players = pl; broadcast(); emit();
     }
     function applyVote(p){
@@ -503,7 +518,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
         if(status!=='SUBSCRIBED') return;
         subscribed = true;
         if(isHost){ broadcast(); sendAllMemes(); } else channel.send({ type:'broadcast', event:'request', payload:{} });
-        if(pendingTrack){ pendingTrack=false; channel.track({ uid:uid, joinedAt: Date.now() }); }
+        if(pendingTrack){ pendingTrack=false; channel.track({ uid:uid, joinedAt: Date.now(), name: pendingName }); }
       });
     }
     return {
@@ -512,7 +527,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
       create: function(code, m){ isHost=true; room={ meta:m, players:{}, votes:{}, questions:null }; ensureChannel(code); emit(); return Promise.resolve(); },
       setQuestions: function(code, qs){ if(room){ room.questions = qs || null; broadcast(); emit(); } return Promise.resolve(); },
       watch: function(code, callback){ cb=callback; ensureChannel(code); emit(); return function(){ if(channel){ try{ client.removeChannel(channel); }catch(e){} } channel=null; subscribed=false; }; },
-      join: function(code){ ensureChannel(code); if(subscribed){ channel.track({ uid:uid, joinedAt: Date.now() }); channel.send({ type:'broadcast', event:'request', payload:{} }); } else { pendingTrack=true; } return Promise.resolve(); },
+      join: function(code, name){ ensureChannel(code); pendingName = name||''; if(subscribed){ channel.track({ uid:uid, joinedAt: Date.now(), name: pendingName }); channel.send({ type:'broadcast', event:'request', payload:{} }); } else { pendingTrack=true; } return Promise.resolve(); },
       leave: function(){ if(channel){ try{ channel.untrack(); }catch(e){} } return Promise.resolve(); },
       setMeta: function(code, patch){ if(room && isHost){ Object.assign(room.meta, patch); broadcast(); emit(); } return Promise.resolve(); },
       vote: function(code, i, name){ if(channel){ channel.send({ type:'broadcast', event:'vote', payload:{ uid:uid, roundIdx:i, name:name } }); } return Promise.resolve(); },
@@ -530,11 +545,12 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     if(window.__memeBackend){ backend=window.__memeBackend; state.configured=true; }
     else if(okConfig){ backend=makeSupabaseBackend(SUPABASE_URL, SUPABASE_ANON_KEY); state.configured=true; }
     else { state.configured=false; state.connecting=false; render(); return; }
-    if(roomParam){ state.view='phone'; state.joinCode=roomParam; state.playerMode=true; }
+    var savedName=''; try{ savedName=localStorage.getItem('meme_name')||''; }catch(e){}
+    if(savedName) state.playerName=savedName;
+    if(roomParam){ state.view='phone'; state.joinCode=roomParam; state.playerMode=true; state.fromLink=true; }
     render();
     backend.ready.then(function(r){
-      state.uid=r.uid; state.connecting=false;
-      if(roomParam){ joinRoom(roomParam); } else { render(); }
+      state.uid=r.uid; state.connecting=false; render();   // show the name-entry join screen; the player joins after entering a name
     }).catch(function(e){ state.connecting=false; state.error=(e&&e.message)||'Connection failed'; render(); });
   }
   init();
