@@ -142,40 +142,33 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
   // ---- Sound: a short synthesized "round start" cue (no external audio file) ----
   var soundRoundKey = -1;
   var Sound = (function(){
-    var ctx=null, on=true, loopTimer=null;
-    try{ on = localStorage.getItem('meme_sound')!=='off'; }catch(e){}
-    function ac(){
-      if(!ctx){ try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ ctx=null; } }
-      if(ctx && ctx.state==='suspended'){ try{ ctx.resume(); }catch(e){} }
-      return ctx;
-    }
-    function tone(freq, start, dur, type, vol){
-      var c=ac(); if(!c) return;
+    var on=true; try{ on = localStorage.getItem('meme_sound')!=='off'; }catch(e){}
+    // Primary: a produced game-show suspense loop (suspense.mp3). Fallback: a
+    // synthesized loop, used only if the file fails to load.
+    var audio=null, audioBad=false, ctx=null, loopTimer=null;
+    function getAudio(){
+      if(audio || audioBad) return audio;
       try{
-        var o=c.createOscillator(), g=c.createGain(), t0=c.currentTime+start;
-        o.type=type||'triangle'; o.frequency.value=freq;
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.linearRampToValueAtTime(vol||0.2, t0+0.03);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
-        o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0+dur+0.03);
-      }catch(e){}
+        audio=new Audio('suspense.mp3'); audio.loop=true; audio.preload='auto'; audio.volume=0.55;
+        audio.addEventListener('error', function(){ audioBad=true; });
+      }catch(e){ audioBad=true; audio=null; }
+      return audio;
     }
-    // one suspense "bar" (~1.85s): clock ticks + rising minor arpeggio + low drone
-    function bar(){
-      if(!on || !ac()) return;
-      tone(196.00, 0.00, 0.15, 'sine',     0.15);  // G3 clock tick
-      tone(196.00, 0.92, 0.15, 'sine',     0.15);  // G3 clock tick
-      tone(587.33, 0.15, 0.5,  'triangle', 0.075); // D5
-      tone(698.46, 0.53, 0.5,  'triangle', 0.075); // F5
-      tone(880.00, 0.92, 0.6,  'triangle', 0.09);  // A5 — tension peak
-      tone(146.83, 0.00, 1.75, 'sine',     0.05);  // D3 low drone
-    }
+    function ac(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ ctx=null; } } if(ctx && ctx.state==='suspended'){ try{ ctx.resume(); }catch(e){} } return ctx; }
+    function tone(f,st,dur,ty,vol){ var c=ac(); if(!c) return; try{ var o=c.createOscillator(),g=c.createGain(),t0=c.currentTime+st; o.type=ty||'triangle'; o.frequency.value=f; g.gain.setValueAtTime(0.0001,t0); g.gain.linearRampToValueAtTime(vol||0.2,t0+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur); o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0+dur+0.03); }catch(e){} }
+    function bar(){ if(!on||!ac()) return; tone(196,0,0.15,'sine',0.15); tone(196,0.92,0.15,'sine',0.15); tone(587.33,0.15,0.5,'triangle',0.075); tone(698.46,0.53,0.5,'triangle',0.075); tone(880,0.92,0.6,'triangle',0.09); tone(146.83,0,1.75,'sine',0.05); }
+    function oscStart(){ if(loopTimer) return; ac(); bar(); loopTimer=setInterval(bar,1850); }
     return {
       isOn: function(){ return on; },
-      unlock: function(){ ac(); },
-      toggle: function(){ on=!on; try{ localStorage.setItem('meme_sound', on?'on':'off'); }catch(e){} if(on){ ac(); } else if(loopTimer){ clearInterval(loopTimer); loopTimer=null; } return on; },
-      startSuspense: function(){ if(!on || loopTimer) return; ac(); bar(); loopTimer=setInterval(bar, 1850); }, // loops until stopped
-      stop: function(){ if(loopTimer){ clearInterval(loopTimer); loopTimer=null; } }
+      unlock: function(){ getAudio(); },
+      toggle: function(){ on=!on; try{ localStorage.setItem('meme_sound', on?'on':'off'); }catch(e){} if(!on){ if(audio){ try{ audio.pause(); }catch(e){} } if(loopTimer){ clearInterval(loopTimer); loopTimer=null; } } else { getAudio(); } return on; },
+      startSuspense: function(){
+        if(!on) return;
+        var a=getAudio();
+        if(a && !audioBad){ try{ a.currentTime=0; }catch(e){} var pr; try{ pr=a.play(); }catch(e){ pr=null; } if(pr && pr.catch){ pr.catch(function(){ oscStart(); }); } return; }
+        oscStart();
+      },
+      stop: function(){ if(audio){ try{ audio.pause(); }catch(e){} } if(loopTimer){ clearInterval(loopTimer); loopTimer=null; } }
     };
   })();
 
