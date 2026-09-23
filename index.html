@@ -142,7 +142,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
   // ---- Sound: a short synthesized "round start" cue (no external audio file) ----
   var soundRoundKey = -1;
   var Sound = (function(){
-    var ctx=null, on=true;
+    var ctx=null, on=true, loopTimer=null;
     try{ on = localStorage.getItem('meme_sound')!=='off'; }catch(e){}
     function ac(){
       if(!ctx){ try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ ctx=null; } }
@@ -155,21 +155,27 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
         var o=c.createOscillator(), g=c.createGain(), t0=c.currentTime+start;
         o.type=type||'triangle'; o.frequency.value=freq;
         g.gain.setValueAtTime(0.0001, t0);
-        g.gain.linearRampToValueAtTime(vol||0.2, t0+0.02);
+        g.gain.linearRampToValueAtTime(vol||0.2, t0+0.03);
         g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
         o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0+dur+0.03);
       }catch(e){}
     }
+    // one suspense "bar" (~1.85s): clock ticks + rising minor arpeggio + low drone
+    function bar(){
+      if(!on || !ac()) return;
+      tone(196.00, 0.00, 0.15, 'sine',     0.15);  // G3 clock tick
+      tone(196.00, 0.92, 0.15, 'sine',     0.15);  // G3 clock tick
+      tone(587.33, 0.15, 0.5,  'triangle', 0.075); // D5
+      tone(698.46, 0.53, 0.5,  'triangle', 0.075); // F5
+      tone(880.00, 0.92, 0.6,  'triangle', 0.09);  // A5 — tension peak
+      tone(146.83, 0.00, 1.75, 'sine',     0.05);  // D3 low drone
+    }
     return {
       isOn: function(){ return on; },
       unlock: function(){ ac(); },
-      toggle: function(){ on=!on; try{ localStorage.setItem('meme_sound', on?'on':'off'); }catch(e){} if(on) ac(); return on; },
-      roundStart: function(){
-        if(!on) return;
-        var notes=[523.25,659.25,783.99,1046.5]; // C5 E5 G5 C6 — upbeat major arpeggio
-        for(var i=0;i<notes.length;i++){ tone(notes[i], i*0.11, 0.34, 'triangle', 0.2); }
-        tone(1318.51, 0.46, 0.5, 'sine', 0.13); // sparkle on top
-      }
+      toggle: function(){ on=!on; try{ localStorage.setItem('meme_sound', on?'on':'off'); }catch(e){} if(on){ ac(); } else if(loopTimer){ clearInterval(loopTimer); loopTimer=null; } return on; },
+      startSuspense: function(){ if(!on || loopTimer) return; ac(); bar(); loopTimer=setInterval(bar, 1850); }, // loops until stopped
+      stop: function(){ if(loopTimer){ clearInterval(loopTimer); loopTimer=null; } }
     };
   })();
 
@@ -501,7 +507,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
   var root = document.getElementById('app');
   function render(){
     // play the round-start cue once per round, on the host screen only
-    try{ var _m=meta(); if(state.view==='host' && _m && _m.status==='round'){ if(soundRoundKey!==_m.roundIdx){ soundRoundKey=_m.roundIdx; Sound.roundStart(); } } else if(!(_m && _m.status==='round')){ soundRoundKey=-1; } }catch(e){}
+    try{ var _m=meta(); if(state.view==='host' && _m && _m.status==='round' && Sound.isOn()){ if(soundRoundKey!==_m.roundIdx){ soundRoundKey=_m.roundIdx; Sound.startSuspense(); } } else { soundRoundKey=-1; Sound.stop(); } }catch(e){}
     var active=document.activeElement, key=null, selS=null, selE=null;
     if(active && active.dataset && active.dataset.focus){ key=active.dataset.focus; try{ selS=active.selectionStart; selE=active.selectionEnd; }catch(e){} }
     try{ document.documentElement.lang=state.lang; document.documentElement.dir=(state.lang==='ar'?'rtl':'ltr'); }catch(e){}
