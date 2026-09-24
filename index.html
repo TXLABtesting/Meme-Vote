@@ -196,7 +196,45 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     state._unwatch = backend.watch(code, function(room){ onRoom(room); });
     if(asPlayer) backend.join(code, state.playerName);
   }
-  function onRoom(room){ state.room = room; maybeAutoAdvance(); render(); }
+  var _lastPhase='';
+  function onRoom(room){ state.room = room; maybeAutoAdvance(); render();
+    var m=meta(); var ph = m ? (m.status+':'+m.roundIdx) : '';
+    persistHost(ph!==_lastPhase); // force a save the moment the phase changes (start/next round/results) so a refresh lands on the right screen
+    _lastPhase=ph;
+  }
+
+  // ---- host game persistence (survive a refresh; no backend/DB needed) ----
+  var _persistT = 0;
+  function persistHost(force){
+    var inRoom  = (state.role==='host' && state.code && meta());
+    var inSetup = (state.view==='host' && !state.code && state.hostScreen==='setup');
+    if(!inRoom && !inSetup) return;
+    var now=Date.now(); if(!force && now-_persistT<1200) return;
+    var mm=(backend.getMemes?backend.getMemes():{}), g=null;
+    if(inRoom){
+      g={ v:1, type:'room', code:state.code, meta:meta(), questions:(state.room&&state.room.questions)||null, memes:mm, votes:(state.room&&state.room.votes)||{}, ts:now };
+    } else {
+      if(!(state.qs&&Object.keys(state.qs).length) && !Object.keys(mm).length) return;
+      g={ v:1, type:'setup', roundCount:state.roundCount, qs:state.qs||null, memes:mm, ts:now };
+    }
+    _persistT=now;
+    try{ localStorage.setItem('meme_host_game', JSON.stringify(g)); }
+    catch(e){ try{ g.memes={}; localStorage.setItem('meme_host_game', JSON.stringify(g)); }catch(e2){} }
+  }
+  function clearHostSave(){ try{ localStorage.removeItem('meme_host_game'); }catch(e){} }
+  function restoreHost(g){
+    if(g.type==='setup'){
+      state.roundCount = g.roundCount || 8; state.qs = g.qs || null;
+      if(g.memes && backend.setMeme){ Object.keys(g.memes).forEach(function(i){ backend.setMeme(+i, g.memes[i]); }); }
+      setState({ hostScreen:'setup' });
+      return;
+    }
+    state.role='host';
+    var m=Object.assign({}, g.meta, { hostId: state.uid });
+    backend.hostRestore(g.code, { meta:m, questions:g.questions||null, votes:g.votes||{}, memes:g.memes||{} });
+    watchCurrent(g.code, false);
+    setState({ code:g.code });
+  }
 
   function maybeAutoAdvance(){
     var m = meta(); if(!m || state.role!=='host'){ return; }
@@ -230,9 +268,10 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     submitVote: function(){ var m=meta(); if(!m || myVote()) return; var n=norm(state.voteText); if(!n) return; backend.vote(state.code, m.roundIdx, n); setState({ voteText:'' }); },
     onVoteInput:function(ds,e){ state.voteText=e.target.value; var b=document.getElementById('submit-btn'); if(b) b.style.background = state.voteText.trim()?'#92722A':'#C3C6CB'; },
     onVoteKey:  function(ds,e){ if(e.key==='Enter') actions.submitVote(); },
-    onRoundsInput: function(ds,e){ state.roundCount=+e.target.value; var lab=document.getElementById('round-count-label'); if(lab) lab.textContent=state.roundCount; var pv=document.getElementById('rounds-preview'); if(pv) pv.innerHTML=roundsPreviewInner(); },
-    onQ:        function(ds,e){ setState(function(s){ var qs=Object.assign({}, s.qs||{}); qs[+ds.i]=e.target.value; return { qs:qs }; }); },
-    onMeme:     function(ds,e){ var f=e.target.files && e.target.files[0]; if(!f) return; compressImage(f, function(data){ if(data && backend && backend.setMeme){ backend.setMeme(+ds.i, data); } render(); }); },
+    onRoundsInput: function(ds,e){ state.roundCount=+e.target.value; var lab=document.getElementById('round-count-label'); if(lab) lab.textContent=state.roundCount; var pv=document.getElementById('rounds-preview'); if(pv) pv.innerHTML=roundsPreviewInner(); persistHost(true); },
+    onQ:        function(ds,e){ if(!state.qs) state.qs={}; state.qs[+ds.i]=e.target.value; persistHost(true); }, // update in place (the input already shows the text) — no re-render, so the field keeps focus
+    resetAll:   function(){ clearHostSave(); if(state._unwatch){ try{ state._unwatch(); }catch(e){} state._unwatch=null; } Sound.stop(); soundRoundKey=-1; setState({ role:null, code:null, room:null, hostScreen:'landing', qs:null, voteText:'', tvSel:null }); },
+    onMeme:     function(ds,e){ var f=e.target.files && e.target.files[0]; if(!f) return; compressImage(f, function(data){ if(data && backend && backend.setMeme){ backend.setMeme(+ds.i, data); persistHost(true); } render(); }); },
     onJoinCode: function(ds,e){ state.joinCode=(e.target.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6); var el=document.getElementById('join-code'); if(el && el.value!==state.joinCode){ el.value=state.joinCode; } },
     onJoinKey:  function(ds,e){ if(e.key==='Enter') actions.doJoin(); },
     onName:     function(ds,e){ setState({ playerName: e.target.value }); },
@@ -248,7 +287,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     var m = { createdAt: Date.now(), hostId: state.uid, status:'lobby', roundIdx:0, roundCount: state.roundCount, lang: state.lang };
     backend.create(code, m)
       .then(function(){ return backend.setQuestions(code, state.qs || null); })
-      .then(function(){ state.role='host'; watchCurrent(code, false); setState({ code:code }); })
+      .then(function(){ state.role='host'; watchCurrent(code, false); setState({ code:code }); persistHost(true); })
       .catch(function(e){ setState({ error:(e&&e.message)||'Could not create the game.' }); });
   }
   function joinRoom(code, name){
@@ -303,6 +342,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
           + '<button data-a="setPhone" style="border:0;padding:8px 16px;border-radius:999px;font-weight:600;font-size:14px;background:'+(pb?'#92722A':'transparent')+';color:'+(pb?'#fff':'#4B4F58')+';display:flex;gap:6px;align-items:center"><i class="ph-bold ph-device-mobile"></i>'+esc(t.phone)+'</button>'
           + '<button data-a="setTv" style="border:0;padding:8px 16px;border-radius:999px;font-weight:600;font-size:14px;background:'+(tb?'#92722A':'transparent')+';color:'+(tb?'#fff':'#4B4F58')+';display:flex;gap:6px;align-items:center"><i class="ph-bold ph-television"></i>'+esc(t.tv)+'</button>'
         + '</div>'))
+        + ((!state.playerMode && state.role==='host' && state.code) ? '<button data-a="resetAll" title="'+esc(t.newGame)+'" style="border:1px solid #C3C6CB;background:#fff;padding:8px 12px;border-radius:999px;font-size:16px;display:flex;align-items:center;color:#9EA2A9"><i class="ph-bold ph-house"></i></button>' : '')
         + (state.playerMode ? '' : '<button data-a="toggleSound" title="'+esc(t.sound)+'" style="border:1px solid #C3C6CB;background:#fff;padding:8px 12px;border-radius:999px;font-size:16px;display:flex;align-items:center;color:'+(Sound.isOn()?'#92722A':'#9EA2A9')+'"><i class="ph-bold '+(Sound.isOn()?'ph-speaker-high':'ph-speaker-slash')+'"></i></button>')
         + '<button data-a="toggleLang" style="border:1px solid #C3C6CB;background:#fff;padding:8px 14px;border-radius:999px;font-weight:600;font-size:14px;display:flex;gap:6px;align-items:center"><i class="ph-bold ph-translate"></i>'+esc(t.otherLang)+'</button>'
       + '</div></div>';
@@ -562,6 +602,7 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
       ready: Promise.resolve({ uid: uid }), get uid(){ return uid; },
       exists: function(){ return Promise.resolve(true); }, // optimistic; UI shows "waiting for host"
       create: function(code, m){ isHost=true; room={ meta:m, players:{}, votes:{}, questions:null }; ensureChannel(code); emit(); return Promise.resolve(); },
+      hostRestore: function(code, snap){ isHost=true; room={ meta:snap.meta, players:{}, votes:snap.votes||{}, questions:snap.questions||null }; memes=snap.memes||{}; ensureChannel(code); emit(); return Promise.resolve(); },
       setQuestions: function(code, qs){ if(room){ room.questions = qs || null; broadcast(); emit(); } return Promise.resolve(); },
       watch: function(code, callback){ cb=callback; ensureChannel(code); emit(); return function(){ if(channel){ try{ client.removeChannel(channel); }catch(e){} } channel=null; subscribed=false; }; },
       join: function(code, name){ ensureChannel(code); pendingName = name||''; if(subscribed){ channel.track({ uid:uid, joinedAt: Date.now(), name: pendingName }); channel.send({ type:'broadcast', event:'request', payload:{} }); } else { pendingTrack=true; } return Promise.resolve(); },
@@ -587,7 +628,15 @@ var SUPABASE_ANON_KEY = "sb_publishable_dn1yZrFMDQX4gV6v8YTzTw_7PJJU1vu"; // pub
     if(roomParam){ state.view='phone'; state.joinCode=roomParam; state.playerMode=true; state.fromLink=true; }
     render();
     backend.ready.then(function(r){
-      state.uid=r.uid; state.connecting=false; render();   // show the name-entry join screen; the player joins after entering a name
+      state.uid=r.uid; state.connecting=false;
+      // restore the host's game after a refresh (images/questions are held in memory only)
+      if(!roomParam && backend.hostRestore){
+        var saved=null; try{ saved=JSON.parse(localStorage.getItem('meme_host_game')||'null'); }catch(e){}
+        if(saved && (saved.code || saved.type) && (!saved.ts || (Date.now()-saved.ts) < 6*3600*1000)){
+          try{ restoreHost(saved); return; }catch(e){}
+        }
+      }
+      render();   // show the name-entry join screen; the player joins after entering a name
     }).catch(function(e){ state.connecting=false; state.error=(e&&e.message)||'Connection failed'; render(); });
   }
   init();
